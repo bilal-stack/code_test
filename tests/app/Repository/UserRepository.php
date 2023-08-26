@@ -24,6 +24,18 @@ use Monolog\Handler\FirePHPHandler;
  */
 class UserRepository extends BaseRepository
 {
+    const USER_STRUCTURE = [
+        "user_type",
+        "name",
+        "company_id",
+        "department_id",
+        "email",
+        "dob_or_orgid",
+        "phone",
+        "mobile",
+        "created_at",
+        "updated_at"
+    ];
 
     protected $model;
     protected $logger;
@@ -41,8 +53,9 @@ class UserRepository extends BaseRepository
         $this->logger->pushHandler(new FirePHPHandler());
     }
 
+    // it is better to put required parameters first.
     public function createOrUpdate($id = null, $request)
-    { 
+    {
         $model = is_null($id) ? new User : User::findOrFail($id);
         $model->user_type = $request['role'];
         $model->name = $request['name'];
@@ -62,10 +75,8 @@ class UserRepository extends BaseRepository
 
         if ($request['role'] == env('CUSTOMER_ROLE_ID')) {
 
-            if($request['consumer_type'] == 'paid')
-            {
-                if($request['company_id'] == '')
-                {
+            if ($request['consumer_type'] == 'paid') {
+                if ($request['company_id'] == '') {
                     $type = Type::where('code', 'paid')->first();
                     $company = Company::create(['name' => $request['name'], 'type_id' => $type->id, 'additional_info' => 'Created automatically for user ' . $model->id]);
                     $department = Department::create(['name' => $request['name'], 'company_id' => $company->id, 'additional_info' => 'Created automatically for user ' . $model->id]);
@@ -119,15 +130,14 @@ class UserRepository extends BaseRepository
                         }
                         $blacklistUpdated [] = $translatorId;
                     }
-
                 }
+
                 if ($blacklistUpdated) {
                     UsersBlacklist::deleteFromBlacklist($model->id, $blacklistUpdated);
                 }
             } else {
                 UsersBlacklist::where('user_id', $model->id)->delete();
             }
-
 
         } else if ($request['role'] == env('TRANSLATOR_ROLE_ID')) {
 
@@ -172,11 +182,9 @@ class UserRepository extends BaseRepository
                     $userLang::deleteLang($model->id, $langidUpdated);
                 }
             }
-
         }
 
         if ($request['new_towns']) {
-
             $towns = new Town;
             $towns->townname = $request['new_towns'];
             $towns->save();
@@ -195,7 +203,6 @@ class UserRepository extends BaseRepository
                     $userTown->save();
                 }
                 $townidUpdated[] = $townId;
-
             }
         }
 
@@ -211,12 +218,64 @@ class UserRepository extends BaseRepository
         return $model ? $model : false;
     }
 
+    public function testCreateOrUpdateCustomerTrue()
+    {
+        $authUser = User::factory()->admin()->create();
+        $response = $this->actingAs($authUser, 'api')
+            ->postJson(
+                '/api/v1/user/create-or-update',
+                [
+                    'user_type'     => 'customer',
+                    'name'          => 'name',
+                    'company_id'    => '1',
+                    'department_id' => '4',
+                    'email'         => 'test@gmail.com',
+                    'dob_or_orgid'  => '1',
+                    'phone'         => '1234',
+                    'mobile'        => '1234',
+                    'role'          => User::CUSTOMER_ROLE_ID,
+                    'password'      => Hash('1234234'),
+                    'consumer_type' => 'paid',
+                    'customer_type' => 'type',
+                    'username'      => 'username',
+                    'post_code'     => '44656',
+                    'address'       => 'Address here ...',
+                    'city'          => 'City',
+                    'town'          => 'Town',
+                    'country'       => 'Country'
+                ]
+            );
+
+        $response->assertOk();
+//            ->assertJsonStructure(self::USER_STRUCTURE)
+//            ->assertJson([
+//                'user_type'     => User::CUSTOMER_ROLE_ID,
+//                'name'          => 'name',
+//                'company_id'    => '1',
+//                'department_id' => '4',
+//                'email'         => 'test@gmail.com',
+//                'dob_or_orgid'  => '1',
+//                'phone'         => '1234',
+//                'mobile'        => '1234',
+//            ]);
+
+        $this->assertEquals([
+            'user_type'     => User::CUSTOMER_ROLE_ID,
+            'name'          => 'name',
+            'company_id'    => '1',
+            'department_id' => '4',
+            'email'         => 'test@gmail.com',
+            'dob_or_orgid'  => '1',
+            'phone'         => '1234',
+            'mobile'        => '1234',
+        ], $response->contents());
+    }
+
     public function enable($id)
     {
         $user = User::findOrFail($id);
         $user->status = '1';
         $user->save();
-
     }
 
     public function disable($id)
@@ -224,12 +283,10 @@ class UserRepository extends BaseRepository
         $user = User::findOrFail($id);
         $user->status = '0';
         $user->save();
-
     }
 
     public function getTranslators()
     {
         return User::where('user_type', 2)->get();
     }
-    
 }

@@ -15,7 +15,7 @@ It needs work on naming variables. PHP uses CamelCase and its variation lowerCam
 
 Model route binding can also help.
 
-Othen than that, it is a good code, like this line: 
+Othen than that, it is a good code, like this line:
 
 $model = is_null($id) ? new User : User::findOrFail($id);
 
